@@ -5,8 +5,8 @@
  * Runs as part of `bun run validate` (also in CI). Checks:
  *   1. plugin/.plugin.json exists and has required fields
  *   2. Entry file referenced by manifest exists
- *   3. No forbidden imports in plugin source (@orgsdk/*, cross-plugin, etc.)
- *   4. Only `import type` from ./contract (no runtime value imports of the shim)
+ *   3. No forbidden imports in plugin source (private @orgsdk/*, cross-plugin)
+ *   4. @orgsdk/plugins is imported type-only (it is a dev-only authoring SDK)
  *
  * Exit code 0 = clean, 1 = violations found.
  */
@@ -97,9 +97,9 @@ async function validateEntry(manifest: Record<string, unknown>): Promise<void> {
 const FORBIDDEN_SPECIFIERS =
 	/(?:^|\n)\s*import\b[^;]*?from\s+["']((?:@orgsdk\/|orgsdk\/)[^"']+)["']/g;
 
-/** Matches value (non-type) imports from the local contract shim. */
-const CONTRACT_VALUE_IMPORT =
-	/(?:^|\n)\s*import\s+(?!type\b)\{[^}]*\}\s+from\s+["']\.\/contract["']/;
+/** Matches value (non-type) imports from @orgsdk/plugins — forbidden at runtime. */
+const SDK_VALUE_IMPORT =
+	/(?:^|\n)\s*import\s+(?!type\b)\{[^}]*\}\s+from\s+["']@orgsdk\/plugins["']/;
 
 async function collectTsFiles(dir: string): Promise<string[]> {
 	const out: string[] = [];
@@ -120,19 +120,23 @@ async function validateSourcePurity(): Promise<void> {
 		const src = await readFile(file, "utf-8");
 
 		for (const match of src.matchAll(FORBIDDEN_SPECIFIERS)) {
+			const spec = match[1];
+			if (spec === "@orgsdk/plugins" || spec.startsWith("@orgsdk/plugins/")) {
+				continue;
+			}
 			violations.push({
 				file: rel(file),
 				rule: "forbidden-import",
-				detail: `Import of internal package "${match[1]}" — external plugins must not depend on private OrgSDK packages`,
+				detail: `Import of internal package "${spec}" — external plugins must not depend on private OrgSDK packages`,
 			});
 		}
 
-		if (CONTRACT_VALUE_IMPORT.test(src)) {
+		if (SDK_VALUE_IMPORT.test(src)) {
 			violations.push({
 				file: rel(file),
-				rule: "contract-value-import",
+				rule: "sdk-value-import",
 				detail:
-					"Value import from ./contract — use `import type` only (the shim is type-only)",
+					"Value import from @orgsdk/plugins — use `import type` only (the SDK is dev-only and must not be a runtime dependency)",
 			});
 		}
 	}

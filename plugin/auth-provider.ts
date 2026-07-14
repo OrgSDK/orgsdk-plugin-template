@@ -1,4 +1,4 @@
-import type { AuthProvider, PluginContext } from "./contract";
+import type { AuthProvider, PluginContext } from "@orgsdk/plugins";
 
 /**
  * Placeholder token auth provider.

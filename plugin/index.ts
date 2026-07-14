@@ -1,6 +1,10 @@
+import type {
+	PluginContext,
+	PluginFactory,
+	PluginModule,
+} from "@orgsdk/plugins";
 import { z } from "zod";
 import { MyAuthProvider } from "./auth-provider";
-import type { PluginContext, PluginFactory, PluginModule } from "./contract";
 import { safeFunctions } from "./functions";
 
 const createPlugin: PluginFactory = (ctx: PluginContext): PluginModule => {

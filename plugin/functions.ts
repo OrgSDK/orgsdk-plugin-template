@@ -1,4 +1,4 @@
-import type { SafeFunction } from "./contract";
+import type { SafeFunction } from "@orgsdk/plugins";
 
 /** Replace this interface with your function's return type. */
 interface ExampleResult {

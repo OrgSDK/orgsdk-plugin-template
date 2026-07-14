@@ -1,57 +1,30 @@
-# Contract migration plan
+# Contract migration — completed
 
-## Current state
+## Status: migrated to `@orgsdk/plugins`
 
-This repository ships a **temporary type-only shim** at
-`plugin/contract.ts` that mirrors the public plugin authoring types
-re-exported by `orgsdk/plugins` in the main OrgSDK monorepo.
+This template now imports its authoring types from the public
+[`@orgsdk/plugins`](https://github.com/OrgSDK/plugins) package instead of a
+local shim. New plugins created from this template start with the right
+contract from day one.
 
-The shim exists so that this plugin can be developed, typechecked, and tested
-as a standalone package **without** a runtime or build-time dependency on
-private daemon/platform packages (`@orgsdk/daemon`, `@orgsdk/storage`,
-`@orgsdk/shared`, etc.).
+## What changed
 
-Every export in `plugin/contract.ts` is a TypeScript type — no runtime values.
-At daemon load time the real `PluginContext` (stores, logger, base URL) is
-injected via the factory function; the shim is erased at compile time.
+1. **`plugin/contract.ts` deleted** — no local shim needed.
+2. **All imports** use `import type { … } from "@orgsdk/plugins"`.
+3. **devDependency pinned** to the public GitHub repo at an immutable commit
+   (`github:OrgSDK/plugins#da5ae72…`) until npm publication of v0.1.0.
+4. **Purity guards** allow `@orgsdk/plugins` type-only imports; value imports
+   and all other `@orgsdk/*` packages are blocked.
+5. **Artifact purity** — the runtime artifact carries `zod` but NOT
+   `@orgsdk/plugins` (type-only imports are erased at compile time).
 
-## Why a local shim instead of a package?
+## Creating a new plugin from this template
 
-The planned **`@orgsdk/plugin-contract`** types-only npm package does not
-exist yet. Rather than block external plugin development on its publication,
-we ship a minimal, documented, faithful copy of the authoring surface that
-can be replaced mechanically when the real package lands.
+1. Use this repo as a template (GitHub "Use this template" button).
+2. Replace `my-plugin` in `plugin/.plugin.json` with your plugin's slug.
+3. Replace the placeholder functions and auth provider with your own.
+4. Import types from `@orgsdk/plugins`; import `z` from `zod` for config schemas.
+5. Run `bun run build` to typecheck, validate, and package.
 
-## What's in the shim
-
-Exactly the public authoring surface — nothing internal:
-
-- Store interfaces (`CredentialStore`, `ConfigStore`) — structural, matching
-  `@orgsdk/storage`.
-- `PluginLogger` — a structural logger type (avoids a hard `pino` dependency).
-- `PluginContext`, `PluginModule`, `PluginFactory`.
-- `AuthProvider`, `AuthMeta`, `HttpEndpoint`.
-- `SafeFunction` and its metadata/docs types.
-- `PluginConfigDefinition`, `PluginManifest`, `PluginTableSchema`.
-
-No daemon internals, no sandbox types, no store implementations, no schema
-table definitions.
-
-## Migration when @orgsdk/plugin-contract ships
-
-1. `bun add @orgsdk/plugin-contract` (types-only — `devDependencies`).
-2. Search-replace `from "./contract"` → `from "@orgsdk/plugin-contract"`
-   across `plugin/**/*.ts`.
-3. Delete `plugin/contract.ts`.
-4. Update `tests/purity.test.ts` to allow the new specifier.
-5. Update `scripts/validate-plugin.ts` to allow `@orgsdk/plugin-contract`
-   (it's type-only, like the current shim).
-6. `bun run build` — should pass with zero source changes beyond the import
-   path.
-
-## Provenance
-
-| Field | Value |
-|---|---|
-| Sourced from | `packages/daemon/src/plugins/{module-types,types}.ts` |
-| Storage interfaces from | `packages/storage/src/interfaces/{credential,config}-store.ts` |
+See the [OrgSDK/plugins README](https://github.com/OrgSDK/plugins#readme) for
+the full authoring API surface.

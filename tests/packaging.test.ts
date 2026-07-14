@@ -59,7 +59,7 @@ describe("packaging", () => {
 		expect(paths).toEqual(sorted);
 	});
 
-	it("generated package.json in artifact has runtime deps only", async () => {
+	it("generated package.json in artifact has runtime deps only (no @orgsdk/plugins)", async () => {
 		const { name } = await readManifestInfo();
 		await $`bun run scripts/package-plugin.ts`.cwd(ROOT).quiet();
 		const pkgPath = join(DIST_DIR, name, "package.json");
@@ -72,6 +72,10 @@ describe("packaging", () => {
 		expect(typeof pkg.version).toBe("string");
 		expect(pkg.type).toBe("module");
 		expect(pkg.dependencies).toBeDefined();
+		// The authoring SDK must NOT be a runtime dependency.
+		expect(
+			(pkg.dependencies as Record<string, string>)["@orgsdk/plugins"],
+		).toBeUndefined();
 		expect(pkg.devDependencies).toBeUndefined();
 		expect(pkg.scripts).toBeUndefined();
 		expect(pkg.private).toBeUndefined();
