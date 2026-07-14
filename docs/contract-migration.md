@@ -1,18 +1,18 @@
 # Contract migration — completed
 
-## Status: migrated to `@orgsdk/plugins`
+## Status: consuming `@orgsdk/plugins` from npm
 
-This template now imports its authoring types from the public
-[`@orgsdk/plugins`](https://github.com/OrgSDK/plugins) package instead of a
-local shim. New plugins created from this template start with the right
-contract from day one.
+This template imports its authoring types from the public
+[`@orgsdk/plugins`](https://www.npmjs.com/package/@orgsdk/plugins) npm package.
+New plugins created from this template start with the right contract from day
+one.
 
 ## What changed
 
 1. **`plugin/contract.ts` deleted** — no local shim needed.
 2. **All imports** use `import type { … } from "@orgsdk/plugins"`.
-3. **devDependency pinned** to the public GitHub repo at an immutable commit
-   (`github:OrgSDK/plugins#da5ae72…`) until npm publication of v0.1.0.
+3. **devDependency** is the published npm package, pinned to an exact version
+   (`@orgsdk/plugins@0.1.0`) for reproducibility at this early contract stage.
 4. **Purity guards** allow `@orgsdk/plugins` type-only imports; value imports
    and all other `@orgsdk/*` packages are blocked.
 5. **Artifact purity** — the runtime artifact carries `zod` but NOT
@@ -25,6 +25,14 @@ contract from day one.
 3. Replace the placeholder functions and auth provider with your own.
 4. Import types from `@orgsdk/plugins`; import `z` from `zod` for config schemas.
 5. Run `bun run build` to typecheck, validate, and package.
+6. Configure the catalog publish settings (see [release.md](release.md)).
 
 See the [OrgSDK/plugins README](https://github.com/OrgSDK/plugins#readme) for
 the full authoring API surface.
+
+## Upgrading the contract version
+
+The dependency is pinned exactly (`0.1.0`). When a new contract version is
+released, update the version in `package.json`, regenerate the lockfile with
+`bun install`, and confirm tests still pass. Prefer deliberate, reviewed
+upgrades over floating ranges while the contract is still pre-1.0.

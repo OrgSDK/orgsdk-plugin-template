@@ -46,17 +46,18 @@ a new plugin with the correct structure, tooling, and CI.
 
 ```
 orgsdk-plugin-template/
-├── .github/workflows/ci.yml      # CI: install, lint, typecheck, test, validate, package
-├── plugin/                       # the publishable plugin folder
-│   ├── .plugin.json              # manifest (slug, version, auth, marketplace)
-│   ├── contract.ts               # temporary type-only authoring shim
-│   ├── index.ts                  # entry — factory(ctx) → PluginModule
-│   ├── auth-provider.ts          # token auth provider (placeholder)
-│   ├── functions.ts              # safe functions (placeholder)
-│   └── docs/overview.md          # plugin-local docs
-├── tests/                        # bun:test — manifest, source purity, plugin shape
-├── scripts/                      # validate-plugin.ts, package-plugin.ts
-├── docs/                         # contract migration plan, release/promotion contract
+├── .github/workflows/
+│   ├── ci.yml                 # CI: install, lint, typecheck, test, validate, package, version guard
+│   └── publish-catalog.yml    # auto-publish to catalog on main (opt-in); manual dry-run
+├── plugin/                    # the publishable plugin folder
+│   ├── .plugin.json           # manifest (slug, version, auth, marketplace)
+│   ├── index.ts               # entry — factory(ctx) → PluginModule
+│   ├── auth-provider.ts       # token auth provider (placeholder)
+│   ├── functions.ts           # safe functions (placeholder)
+│   └── docs/overview.md       # plugin-local docs
+├── tests/                     # bun:test — manifest, source purity, plugin shape
+├── scripts/                   # validate-plugin, package-plugin, publish-catalog, check-version-bump
+├── docs/                      # contract migration, release/promotion contract
 ├── package.json
 ├── tsconfig.json
 ├── biome.json
@@ -81,23 +82,32 @@ bun run build        # full pipeline: typecheck → validate → package
 
 - The manifest lives at `plugin/.plugin.json`.
 - `version` is the **source of truth** for the catalog — bump it on every
-  behavior change.
-- Versions are **write-once** in the catalog history table.
-- There is no rollback path yet — treat every publish as forward-only.
-- See [docs/release.md](docs/release.md) for the catalog promotion contract.
+  publishable content change (the CI version guard enforces this).
+- `package.json` → `version` is kept in sync with the manifest (enforced by
+  the version guard).
+- Versions are **write-once** in the catalog: re-publishing the same
+  `(slug, version)` with identical content is idempotent; differing content is
+  rejected (HTTP 409). Treat every publish as forward-only.
+- See [docs/release.md](docs/release.md) for the automatic publish model and
+  the repository settings a new plugin must configure.
 
 ## Security constraints
 
 - Credentials are injected at call time via `requiredCredentials` — they are
   **never** hardcoded, logged, or persisted in plugin source.
 - Source purity is enforced: no imports from private `@orgsdk/*` packages,
-  no cross-plugin imports, no runtime value imports from the type shim.
-- No publish credentials or production catalog secrets exist in this repo.
+  no cross-plugin imports, no runtime value imports from the authoring SDK.
+- Publish credentials (`ORGSDK_PUBLISH_TOKEN`) live as a GitHub secret
+  (repository-level or `catalog-publish` environment); they are never committed
+  to the repo. This template contains no real credentials or endpoints.
 
-## Contract shim
+## Authoring contract
 
-The plugin authoring types live in `plugin/contract.ts` as a temporary,
-type-only shim. See [docs/contract-migration.md](docs/contract-migration.md).
+The plugin authoring types come from the public
+[`@orgsdk/plugins`](https://www.npmjs.com/package/@orgsdk/plugins) npm package,
+imported type-only (`import type { … } from "@orgsdk/plugins"`). The SDK is a
+dev-only dependency; the runtime artifact carries only `zod`. See
+[docs/contract-migration.md](docs/contract-migration.md).
 
 ## License
 

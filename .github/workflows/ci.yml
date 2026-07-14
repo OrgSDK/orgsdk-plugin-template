@@ -18,8 +18,11 @@ jobs:
       contents: read
 
     steps:
-      # actions/checkout@v4
+      # actions/checkout@v4 — full history so the version guard can diff
+      # against the PR base / previous main commit (robust to shallow clones).
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          fetch-depth: 0
 
       # oven-sh/setup-bun@v2
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
@@ -28,6 +31,20 @@ jobs:
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Version guard (manifest version bumps with publishable content)
+        env:
+          # pull_request: diff against the base branch tip (origin/<base>).
+          # push: diff against the previous commit on this branch.
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.event.pull_request.base.ref) || github.event.before }}
+        run: |
+          # Ensure the base ref is present in the local clone (PR checkouts may
+          # not fetch the base branch tip by default). Best-effort; the guard
+          # no-ops gracefully if the ref still cannot be resolved.
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            git fetch --no-tags --depth=1 origin "${{ github.event.pull_request.base.ref }}" 2>/dev/null || true
+          fi
+          bun run version-guard
 
       - name: Format + lint
         run: bun run check
