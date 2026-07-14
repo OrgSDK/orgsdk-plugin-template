@@ -1,0 +1,27 @@
+{
+	"name": "my-plugin",
+	"version": "0.1.0",
+	"description": "A starter OrgSDK plugin — replace this with your plugin's description.",
+	"entry": "index.ts",
+	"auth": {
+		"type": "token",
+		"provider": "my-service",
+		"label": "My Service API key",
+		"hint": "Create an API key at example.com/settings."
+	},
+	"marketplace": {
+		"displayName": "My Plugin",
+		"category": "Utilities",
+		"tagline": "A one-line summary of what this plugin does for agents.",
+		"tags": ["placeholder"],
+		"useCases": [
+			"Describe a primary use case here",
+			"Describe a secondary use case here"
+		],
+		"permissionsSummary": "Describe what this plugin can do and cannot do.",
+		"links": {
+			"homepage": "https://example.com",
+			"docs": "https://example.com/docs"
+		}
+	}
+}
