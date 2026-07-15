@@ -31,9 +31,10 @@ name: Publish to Catalog
 #
 # Before this can publish, configure these in the new repo's GitHub Settings:
 #   Variable   ORGSDK_ENABLE_CATALOG_PUBLISH — 'true' to opt in to publishing.
-#   Secret     ORGSDK_PUBLISH_TOKEN — admin JWT. May be a repository-level
-#              secret OR a catalog-publish environment secret (an environment
-#              value takes precedence if both exist); never printed or logged.
+#   Secret     ORGSDK_PUBLISH_TOKEN — scoped catalog publisher token. May be a
+#              repository-level secret OR a catalog-publish environment secret
+#              (an environment value takes precedence if both exist); never
+#              printed or logged.
 #   Variable   ORGSDK_CATALOG_URL   — platform base URL (your catalog endpoint).
 #   Environment "catalog-publish"   — restrict deployment branches to main for
 #              fully automatic publishing. Do NOT enable required reviewers by

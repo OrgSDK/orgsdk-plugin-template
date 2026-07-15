@@ -3,11 +3,12 @@
  * publish-catalog.ts — package the validated plugin artifact and POST it to
  * the OrgSDK platform catalog API (POST /api/plugins).
  *
- * The route expects an admin-authenticated JSON body:
+ * The route expects an authenticated JSON body:
  *   { slug, name, description?, version, category?, visibility: "public",
  *     files: [{ path, content }] }
  *
- * Auth: a Bearer token (admin JWT) passed via --token or ORGSDK_PUBLISH_TOKEN.
+ * Auth: a Bearer token (scoped catalog publisher token) passed via --token
+ * or ORGSDK_PUBLISH_TOKEN.
  * URL: the platform base URL via --url or ORGSDK_CATALOG_URL (non-secret).
  *
  * Default mode is --dry-run (packages + prints the payload, does NOT POST).
@@ -50,7 +51,7 @@ function parseArgs(): Args {
 	}
 	if (!dryRun && !token) {
 		console.error(
-			"Publish requires auth: pass --token <jwt> or set ORGSDK_PUBLISH_TOKEN",
+			"Publish requires auth: pass --token <token> or set ORGSDK_PUBLISH_TOKEN",
 		);
 		process.exit(1);
 	}
