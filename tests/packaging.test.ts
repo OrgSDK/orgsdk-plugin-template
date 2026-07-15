@@ -33,23 +33,23 @@ describe("packaging", () => {
 		const sentinel = join(DIST_DIR, "STALE_SENTINEL.txt");
 		await writeFile(sentinel, "this should not survive packaging");
 
-		await $`bun run scripts/package-plugin.ts`.cwd(ROOT).quiet();
+		await $`bun run package`.cwd(ROOT).quiet();
 
 		await expect(stat(sentinel)).rejects.toThrow();
 	});
 
 	it("produces deterministic output across runs", async () => {
-		await $`bun run scripts/package-plugin.ts`.cwd(ROOT).quiet();
+		await $`bun run package`.cwd(ROOT).quiet();
 		const first = await readFile(await manifestPath(), "utf-8");
 
-		await $`bun run scripts/package-plugin.ts`.cwd(ROOT).quiet();
+		await $`bun run package`.cwd(ROOT).quiet();
 		const second = await readFile(await manifestPath(), "utf-8");
 
 		expect(second).toBe(first);
 	});
 
 	it("manifest entries are sorted by path", async () => {
-		await $`bun run scripts/package-plugin.ts`.cwd(ROOT).quiet();
+		await $`bun run package`.cwd(ROOT).quiet();
 		const raw = await readFile(await manifestPath(), "utf-8");
 		const parsed = JSON.parse(raw) as {
 			files: Array<{ path: string }>;
@@ -61,7 +61,7 @@ describe("packaging", () => {
 
 	it("generated package.json in artifact has runtime deps only (no @orgsdk/plugins)", async () => {
 		const { name } = await readManifestInfo();
-		await $`bun run scripts/package-plugin.ts`.cwd(ROOT).quiet();
+		await $`bun run package`.cwd(ROOT).quiet();
 		const pkgPath = join(DIST_DIR, name, "package.json");
 		const pkg = JSON.parse(await readFile(pkgPath, "utf-8")) as Record<
 			string,
@@ -82,7 +82,7 @@ describe("packaging", () => {
 	});
 
 	it("manifest includes the generated package.json entry", async () => {
-		await $`bun run scripts/package-plugin.ts`.cwd(ROOT).quiet();
+		await $`bun run package`.cwd(ROOT).quiet();
 		const raw = await readFile(await manifestPath(), "utf-8");
 		const parsed = JSON.parse(raw) as {
 			files: Array<{ path: string }>;

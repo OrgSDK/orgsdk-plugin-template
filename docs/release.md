@@ -2,11 +2,12 @@
 
 ## Publishing model: automatic on main (opt-in)
 
-This template ships a `publish-catalog.yml` workflow that new official plugins
-inherit. A push (or PR merge) to `main` that touches **publishable artifact
-content** automatically performs a **real, authenticated** catalog publish —
-**but only when the repo variable `ORGSDK_ENABLE_CATALOG_PUBLISH` is set to
-`true`**.
+This template's `publish-catalog.yml` calls the centrally maintained reusable
+catalog-publish workflow in [OrgSDK/plugins](https://github.com/OrgSDK/plugins)
+(pinned to an immutable commit). A push (or PR merge) to `main` that touches
+**publishable artifact content** automatically performs a **real, authenticated**
+catalog publish — **but only when the repo variable
+`ORGSDK_ENABLE_CATALOG_PUBLISH` is set to `true`**.
 
 > **This template repo ships without that variable**, so it never publishes the
 > placeholder `my-plugin`. A repo generated from the template opts in by
@@ -84,7 +85,7 @@ plugin repo is an acceptable cost.
   truth** for the catalog. `package.json` → `version` is kept in sync (enforced
   by the CI version guard).
 - Bump the version on **every** publishable content change. The CI version
-  guard (`scripts/check-version-bump.ts`, run as `bun run version-guard`)
+  guard (`orgsdk-plugin version-guard`, run as `bun run version-guard`)
   fails a PR/commit if publishable content changed but the manifest version
   did not. Docs/workflow/scripts-only changes do **not** require a bump.
 - Versions are **write-once** in the catalog: re-publishing the same

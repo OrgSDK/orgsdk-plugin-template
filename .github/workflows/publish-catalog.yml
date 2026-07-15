@@ -1,55 +1,14 @@
 name: Publish to Catalog
 
-# Authenticated catalog publish — posts the validated plugin artifact to the
-# OrgSDK platform catalog API (POST /api/plugins).
+# Delegates to the centrally maintained reusable catalog-publish workflow in
+# OrgSDK/plugins. That workflow builds + validates via THIS repo's npm scripts,
+# then publishes with the orgsdk-plugin CLI (dry-run by default; a real publish
+# requires the opt-in variable AND the token secret).
 #
-# Inherited by new official plugins created from this template. Two trigger
-# paths:
-#   1. Automatic — on push to main that touches publishable artifact content
-#      (plugin/** or package.json). Performs a REAL authenticated publish, but
-#      ONLY when the opt-in variable ORGSDK_ENABLE_CATALOG_PUBLISH == 'true'.
-#      When the variable is unset/other, the push path is skipped at the job
-#      level — the catalog-publish environment is never requested, so no
-#      secrets are accessed. Never runs on pull_request.
-#   2. Manual — workflow_dispatch with a dry_run choice. A dry-run (default)
-#      is always available regardless of the opt-in variable. A manual real
-#      publish (dry_run=false) ALSO requires the opt-in variable; it fails
-#      clearly otherwise.
-#
-# Opt-in variable (repo Settings → Variables):
-#   ORGSDK_ENABLE_CATALOG_PUBLISH — set to 'true' to enable real publishing
-#      (both automatic and manual). THIS TEMPLATE REPO SHIPS WITHOUT IT, so it
-#      never publishes the placeholder 'my-plugin'. A repo generated from this
-#      template opts in by creating the variable and setting it to 'true'.
-#
-# The workflow runs its OWN full verification (typecheck + lint + tests +
-# validate + package) rather than depending on the CI workflow's status check.
-# Rationale: it must build the artifact to publish anyway; a self-contained
-# build is robust against CI job-name changes, cancellations, or status-check
-# bypass races (defense in depth). The cost (a redundant build on a tiny repo)
-# is acceptable.
-#
-# Before this can publish, configure these in the new repo's GitHub Settings:
-#   Variable   ORGSDK_ENABLE_CATALOG_PUBLISH — 'true' to opt in to publishing.
-#   Secret     ORGSDK_PUBLISH_TOKEN — scoped catalog publisher token. May be a
-#              repository-level secret OR a catalog-publish environment secret
-#              (an environment value takes precedence if both exist); never
-#              printed or logged.
-#   Variable   ORGSDK_CATALOG_URL   — platform base URL (your catalog endpoint).
-#   Environment "catalog-publish"   — restrict deployment branches to main for
-#              fully automatic publishing. Do NOT enable required reviewers by
-#              default (that makes publishing approval-based, not automatic);
-#              enable reviewers only as a temporary emergency pause.
-#
-# Until those are configured, the workflow builds and dry-runs but never
-# publishes. This file contains no real credentials or endpoints — only
-# GitHub expression references.
-#
-# Safety: the catalog enforces write-once versions. Re-publishing an identical
-# (slug, version) is idempotent; differing content for an existing version is
-# rejected with HTTP 409 (the version guard in CI prevents that from reaching
-# main). A push that does not touch publishable content does not trigger this
-# workflow at all (paths filter).
+# THIS TEMPLATE REPO SHIPS WITHOUT ORGSDK_ENABLE_CATALOG_PUBLISH, so it never
+# auto-publishes the placeholder 'my-plugin'. A generated repo opts in by
+# setting the variable to 'true'. See
+# https://github.com/OrgSDK/plugins/blob/main/docs/reusable-workflows.md
 
 on:
   push:
@@ -71,121 +30,20 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  # Serialize per ref; never cancel an in-flight publish (leave it complete).
-  group: publish-catalog-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   publish:
-    runs-on: ubuntu-latest
-    environment: catalog-publish
-    # The job runs for manual dispatch (dry-run is always allowed) or for an
-    # automatic push ONLY when ORGSDK_ENABLE_CATALOG_PUBLISH == 'true'. A push
-    # with the variable disabled is skipped here, BEFORE the environment is
-    # requested, so no secrets are accessed (clean skip). pull_request is
-    # excluded by construction (no pull_request trigger). This template repo
-    # ships without the variable, so it never auto-publishes 'my-plugin'.
+    # Auto path: only when the opt-in variable is 'true'. Manual dispatch is
+    # always allowed (a manual real publish is re-gated inside the reusable
+    # workflow). pull_request is excluded — there is no pull_request trigger.
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && vars.ORGSDK_ENABLE_CATALOG_PUBLISH == 'true')
-    steps:
-      # actions/checkout@v4 — full history for the version guard (push events
-      # diff against github.event.before, which must be present in history).
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
-        with:
-          fetch-depth: 0
-
-      # oven-sh/setup-bun@v2
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
-        with:
-          bun-version: 1.3.9
-
-      - name: Install dependencies (frozen)
-        run: bun install --frozen-lockfile
-
-      - name: Version guard (no content change without a version bump)
-        env:
-          BASE_REF: ${{ github.event.before }}
-        run: bun run version-guard
-
-      - name: Verify (typecheck + lint + tests)
-        run: |
-          bun run typecheck
-          bun run check
-          bun run test
-
-      - name: Validate + package
-        run: bun run build
-
-      - name: Resolve publish intent and opt-in gate
-        env:
-          GATE: ${{ vars.ORGSDK_ENABLE_CATALOG_PUBLISH }}
-          EVENT_NAME: ${{ github.event_name }}
-          DRY_RUN_INPUT: ${{ github.event.inputs.dry_run }}
-        run: |
-          echo "event=$EVENT_NAME gate=$GATE dry_run=$DRY_RUN_INPUT"
-          # A REAL publish requires the opt-in gate. Push events only reach
-          # this job when the gate is on (job-level if). A manual real publish
-          # (dry_run=false) must ALSO satisfy the gate, else fail clearly.
-          if [ "$EVENT_NAME" = "push" ]; then
-            MODE=real
-          elif [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$DRY_RUN_INPUT" = "false" ]; then
-            if [ "$GATE" != "true" ]; then
-              echo "::error::Manual real publish requested but ORGSDK_ENABLE_CATALOG_PUBLISH is not 'true'."
-              echo "Set the repo variable ORGSDK_ENABLE_CATALOG_PUBLISH=true to opt in, then re-run."
-              exit 1
-            fi
-            MODE=real
-          else
-            MODE=dry-run
-          fi
-          echo "Publish mode: $MODE"
-          echo "PUBLISH_MODE=$MODE" >> "$GITHUB_ENV"
-
-      - name: Verify catalog URL is configured (real publish only)
-        if: env.PUBLISH_MODE == 'real'
-        env:
-          ORGSDK_CATALOG_URL: ${{ vars.ORGSDK_CATALOG_URL }}
-        run: |
-          if [ -z "$ORGSDK_CATALOG_URL" ]; then
-            echo "::error::ORGSDK_CATALOG_URL repo variable is not set. Set it in Settings → Variables."
-            exit 1
-          fi
-
-      - name: Verify publish token (real publish only)
-        if: env.PUBLISH_MODE == 'real'
-        env:
-          ORGSDK_PUBLISH_TOKEN: ${{ secrets.ORGSDK_PUBLISH_TOKEN }}
-        run: |
-          if [ -z "$ORGSDK_PUBLISH_TOKEN" ]; then
-            echo "::error::ORGSDK_PUBLISH_TOKEN secret is not set."
-            echo "It may be a repository-level secret or a catalog-publish environment secret."
-            exit 1
-          fi
-
-      - name: Publish to catalog
-        env:
-          ORGSDK_PUBLISH_TOKEN: ${{ secrets.ORGSDK_PUBLISH_TOKEN }}
-          ORGSDK_CATALOG_URL: ${{ vars.ORGSDK_CATALOG_URL }}
-        run: |
-          if [ "$PUBLISH_MODE" = "real" ]; then
-            bun run scripts/publish-catalog.ts --url "$ORGSDK_CATALOG_URL" --publish
-          else
-            # Dry-run: package + preview the payload (no POST, no token used).
-            # If no URL is configured yet, skip the preview — the build above
-            # already validated the artifact.
-            if [ -z "$ORGSDK_CATALOG_URL" ]; then
-              echo "Dry-run: ORGSDK_CATALOG_URL not set — skipping payload preview (artifact built above)."
-            else
-              bun run scripts/publish-catalog.ts --url "$ORGSDK_CATALOG_URL"
-            fi
-          fi
-
-      # actions/upload-artifact@v4 — keep the staged artifact for audit.
-      - name: Upload staged artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: plugin-template-${{ github.sha }}
-          path: dist/
-          retention-days: 30
+    uses: OrgSDK/plugins/.github/workflows/plugin-publish.yml@cba8f1c5a62b2be9edcf789f041c23b7313eaf6a
+    with:
+      # push → real publish; manual → honor the dry_run choice.
+      dry-run: ${{ !(github.event_name == 'push' || github.event.inputs.dry_run == 'false') }}
+      publish-enabled: ${{ vars.ORGSDK_ENABLE_CATALOG_PUBLISH }}
+      catalog-url: ${{ vars.ORGSDK_CATALOG_URL }}
+      artifact-name: plugin-template-${{ github.sha }}
+    secrets:
+      ORGSDK_PUBLISH_TOKEN: ${{ secrets.ORGSDK_PUBLISH_TOKEN }}

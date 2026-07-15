@@ -47,8 +47,8 @@ a new plugin with the correct structure, tooling, and CI.
 ```
 orgsdk-plugin-template/
 ├── .github/workflows/
-│   ├── ci.yml                 # CI: install, lint, typecheck, test, validate, package, version guard
-│   └── publish-catalog.yml    # auto-publish to catalog on main (opt-in); manual dry-run
+│   ├── ci.yml                 # calls the shared reusable CI workflow (OrgSDK/plugins)
+│   └── publish-catalog.yml    # calls the shared reusable publish workflow (opt-in; manual dry-run)
 ├── plugin/                    # the publishable plugin folder
 │   ├── .plugin.json           # manifest (slug, version, auth, marketplace)
 │   ├── index.ts               # entry — factory(ctx) → PluginModule
@@ -56,7 +56,6 @@ orgsdk-plugin-template/
 │   ├── functions.ts           # safe functions (placeholder)
 │   └── docs/overview.md       # plugin-local docs
 ├── tests/                     # bun:test — manifest, source purity, plugin shape
-├── scripts/                   # validate-plugin, package-plugin, publish-catalog, check-version-bump
 ├── docs/                      # contract migration, release/promotion contract
 ├── package.json
 ├── tsconfig.json
@@ -73,10 +72,16 @@ bun install          # install dependencies
 bun run check        # biome lint + format check
 bun run typecheck    # tsc --noEmit
 bun run test         # bun test
-bun run validate     # manifest + source purity validation
-bun run package      # stage artifact into dist/
+bun run validate     # manifest + source purity validation (orgsdk-plugin validate)
+bun run package      # stage artifact into dist/ (orgsdk-plugin package)
 bun run build        # full pipeline: typecheck → validate → package
 ```
+
+The `validate`, `package`, `version-guard`, and `publish` npm scripts delegate to
+the [`orgsdk-plugin`](https://www.npmjs.com/package/@orgsdk/plugins) CLI shipped
+by the `@orgsdk/plugins` dev dependency. There are no local management scripts —
+validation, packaging, version guarding, and (dry-run-by-default) publishing are
+all handled by the CLI.
 
 ## Manifest & version rules
 
@@ -90,6 +95,16 @@ bun run build        # full pipeline: typecheck → validate → package
   rejected (HTTP 409). Treat every publish as forward-only.
 - See [docs/release.md](docs/release.md) for the automatic publish model and
   the repository settings a new plugin must configure.
+
+## CI/CD
+
+CI and catalog publishing delegate to centrally maintained **reusable
+workflows** in [OrgSDK/plugins](https://github.com/OrgSDK/plugins), pinned to an
+immutable commit. The caller workflows (`.github/workflows/`) only wire up
+triggers, the opt-in gate, artifact names, and secrets — no plugin mechanics are
+duplicated. See the
+[reusable-workflows docs](https://github.com/OrgSDK/plugins/blob/main/docs/reusable-workflows.md)
+for the full contract.
 
 ## Security constraints
 
